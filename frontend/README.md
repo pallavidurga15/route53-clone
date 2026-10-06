@@ -110,3 +110,12 @@ npm run dev
 | `GET` | `/api/records/zone/{zone_id}` | Fetch all DNS records inside a specific zone (Optional filter: `?search=`) |
 | `POST` | `/api/records/` | Create a new DNS record in a hosted zone |
 | `DELETE` | `/api/records/{record_id}` | Delete a DNS record by ID |
+
+
+Live Demo (Frontend): https://route53-clone-psi.vercel.app[cite: 7]
+
+Live API Backend: https://route53-backend-a85w.onrender.com[cite: 3]
+
+Interactive API Documentation: https://route53-backend-a85w.onrender.com/docs[cite: 3]
+
+GitHub Repository: https://github.com/pallavidurga15/route53-clone
