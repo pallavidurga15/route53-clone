@@ -1,190 +1,190 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { fetchHostedZones, createHostedZone, deleteHostedZone, HostedZone } from "@/lib/api";
+import { useState, useEffect } from "react";
+
+interface HostedZone {
+  id: string;
+  name: string;
+  type: string;
+  record_count: number;
+  comment?: string;
+}
 
 export default function HostedZonesPage() {
   const [zones, setZones] = useState<HostedZone[]>([]);
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
-
-  // Form states
   const [domainName, setDomainName] = useState("");
   const [comment, setComment] = useState("");
 
-  const loadZones = async () => {
+  const API_URL = (
+    process.env.NEXT_PUBLIC_API_URL || "https://route53-backend-a85w.onrender.com"
+  ).replace(/\/$/, "");
+
+  // Fetch hosted zones on load
+  const fetchZones = async () => {
     try {
-      const data = await fetchHostedZones(search);
+      setLoading(true);
+      const res = await fetch(`${API_URL}/hosted-zones`);
+      if (!res.ok) throw new Error("Failed to fetch zones");
+      const data = await res.json();
       setZones(data);
-    } catch (err) {
-      console.error("Failed to load zones:", err);
+    } catch (error) {
+      console.error("Error fetching hosted zones:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadZones();
-  }, [search]);
+    fetchZones();
+  }, []);
 
+  // Create new hosted zone
   const handleCreateZone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainName) return;
+
     try {
-      await createHostedZone({ name: domainName, type: "Public hosted zone", comment });
+      const res = await fetch(`${API_URL}/hosted-zones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: domainName, comment }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create hosted zone");
+
       setDomainName("");
       setComment("");
       setIsModalOpen(false);
-      loadZones();
-    } catch (err) {
+      fetchZones(); // Refresh table
+    } catch (error) {
+      console.error(error);
       alert("Failed to create hosted zone");
     }
   };
 
-  const handleDeleteZone = async () => {
-    if (!selectedZoneId) return;
-    if (confirm("Are you sure you want to delete this hosted zone?")) {
-      try {
-        await deleteHostedZone(selectedZoneId);
-        setSelectedZoneId(null);
-        loadZones();
-      } catch (err) {
-        alert("Failed to delete zone");
-      }
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex justify-between items-center bg-white p-4 border border-gray-200 rounded shadow-sm">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Hosted zones</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            A hosted zone is a container for DNS records that define how you want to route traffic on the internet for a domain.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleDeleteZone}
-            disabled={!selectedZoneId}
-            className={`px-3 py-1.5 text-xs font-semibold rounded border ${
-              selectedZoneId
-                ? "border-red-600 text-red-600 hover:bg-red-50 cursor-pointer"
-                : "border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50"
-            }`}
-          >
-            Delete
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-[#ec7211] hover:bg-[#eb5f07] text-white px-4 py-1.5 text-xs font-semibold rounded shadow-sm"
-          >
-            Create hosted zone
-          </button>
-        </div>
-      </div>
+    <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+        <h2>Hosted zones</h2>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          style={{
+            backgroundColor: "#ec7211",
+            color: "#fff",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Create hosted zone
+        </button>
+      </header>
 
-      {/* Table Controls & Search */}
-      <div className="bg-white border border-gray-200 rounded shadow-sm">
-        <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-          <input
-            type="text"
-            placeholder="Search hosted zones by name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-72 text-xs border border-gray-300 px-3 py-1.5 rounded focus:outline-none focus:border-[#0972d3]"
-          />
-          <span className="text-xs text-gray-500">Total: {zones.length}</span>
-        </div>
-
-        {/* Table */}
-        <table className="w-full text-left text-xs border-collapse">
+      {/* Table */}
+      {loading ? (
+        <p>Loading hosted zones...</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
-            <tr className="bg-gray-100 border-b border-gray-200 text-gray-700 font-semibold">
-              <th className="p-3 w-8"></th>
-              <th className="p-3">Domain name</th>
-              <th className="p-3">Type</th>
-              <th className="p-3">Record count</th>
-              <th className="p-3">Hosted zone ID</th>
-              <th className="p-3">Comment</th>
+            <tr style={{ borderBottom: "2px solid #ccc", backgroundColor: "#f2f2f2" }}>
+              <th style={{ padding: "10px" }}>Domain name</th>
+              <th style={{ padding: "10px" }}>Type</th>
+              <th style={{ padding: "10px" }}>Record count</th>
+              <th style={{ padding: "10px" }}>Hosted zone ID</th>
+              <th style={{ padding: "10px" }}>Comment</th>
             </tr>
           </thead>
           <tbody>
             {zones.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-6 text-gray-400">
+                <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
                   No hosted zones found.
                 </td>
               </tr>
             ) : (
               zones.map((zone) => (
-                <tr
-                  key={zone.id}
-                  className={`border-b border-gray-200 hover:bg-blue-50 ${
-                    selectedZoneId === zone.id ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <td className="p-3 text-center">
-                    <input
-                      type="radio"
-                      name="zone-select"
-                      checked={selectedZoneId === zone.id}
-                      onChange={() => setSelectedZoneId(zone.id)}
-                    />
-                  </td>
-                  <td className="p-3 font-semibold text-[#0972d3] hover:underline">
-                    <Link href={`/hostedzones/${zone.id}`}>{zone.name}</Link>
-                  </td>
-                  <td className="p-3">{zone.type}</td>
-                  <td className="p-3">{zone.record_count}</td>
-                  <td className="p-3 font-mono text-gray-600">{zone.id}</td>
-                  <td className="p-3 text-gray-500">{zone.comment || "-"}</td>
+                <tr key={zone.id} style={{ borderBottom: "1px solid #ddd" }}>
+                  <td style={{ padding: "10px" }}>{zone.name}</td>
+                  <td style={{ padding: "10px" }}>{zone.type}</td>
+                  <td style={{ padding: "10px" }}>{zone.record_count}</td>
+                  <td style={{ padding: "10px" }}>{zone.id}</td>
+                  <td style={{ padding: "10px" }}>{zone.comment || "-"}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
-      </div>
+      )}
 
-      {/* Modal: Create Hosted Zone */}
+      {/* Create Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
-            <h2 className="text-base font-bold text-gray-900 border-b pb-2">Create hosted zone</h2>
-            <form onSubmit={handleCreateZone} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Domain name</label>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff",
+              padding: "24px",
+              borderRadius: "8px",
+              width: "400px",
+            }}
+          >
+            <h3>Create hosted zone</h3>
+            <form onSubmit={handleCreateZone}>
+              <div style={{ marginBottom: "12px" }}>
+                <label style={{ display: "block", marginBottom: "4px" }}>Domain name</label>
                 <input
                   type="text"
                   required
-                  placeholder="example.com"
+                  placeholder="e.g. example.com"
                   value={domainName}
                   onChange={(e) => setDomainName(e.target.value)}
-                  className="w-full text-xs border border-gray-300 p-2 rounded focus:border-[#0972d3] outline-none"
+                  style={{ width: "100%", padding: "8px", boxSizing: "border-box" }}
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Comment - optional</label>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "4px" }}>Comment - optional</label>
                 <textarea
-                  rows={3}
                   placeholder="Optional description"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="w-full text-xs border border-gray-300 p-2 rounded focus:border-[#0972d3] outline-none"
+                  style={{ width: "100%", padding: "8px", boxSizing: "border-box" }}
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded"
+                  style={{ padding: "8px 16px", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#ec7211] hover:bg-[#eb5f07] text-white px-4 py-1.5 text-xs font-semibold rounded"
+                  style={{
+                    backgroundColor: "#ec7211",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
                 >
                   Create hosted zone
                 </button>
